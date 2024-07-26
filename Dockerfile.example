@@ -1,0 +1,44 @@
+FROM python:3.12-alpine AS base
+
+WORKDIR /app
+
+
+FROM base AS builder
+
+ENV POETRY_NO_INTERACTION=1 \
+    POETRY_VIRTUALENVS_IN_PROJECT=1 \
+    POETRY_VIRTUALENVS_CREATE=1 \
+    POETRY_CACHE_DIR=/tmp/poetry_cache \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PIP_NO_CACHE_DIR=1 \
+    POETRY_VERSION=1.8.2
+
+# Poetry setup 
+RUN pip install "poetry==$POETRY_VERSION"
+
+# Install dependencies
+COPY pyproject.toml poetry.lock ./
+RUN touch README.md && poetry install --only=main --compile --sync --no-root --no-interaction --no-ansi && rm -rf $POETRY_CACHE_DIR
+
+FROM base AS runtime
+
+ENV VIRTUAL_ENV=/app/.venv \
+    PATH="/app/.venv/bin:$PATH" \
+    PYTHONFAULTHANDLER=1 \
+    PYTHONHASHSEED=random \
+    PYTHONUNBUFFERED=1 \
+    USER=runner \
+    UID=1000 \
+    GROUP=runner \
+    GID=1000
+
+RUN addgroup -g $GID -S $GROUP \
+    && adduser -u $UID -G $GROUP -D $USER
+
+COPY --from=builder ${VIRTUAL_ENV} ${VIRTUAL_ENV}
+COPY main.py ./
+COPY cogs ./cogs/
+
+# Run bot
+USER $USER
+ENTRYPOINT ["python", "main.py"]

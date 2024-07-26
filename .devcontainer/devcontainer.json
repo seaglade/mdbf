@@ -1,0 +1,16 @@
+{
+	"name": "Python 3 Poetry",
+	"image": "mcr.microsoft.com/devcontainers/python:1-3.12-bullseye",
+	"features": {
+		"ghcr.io/devcontainers-contrib/features/poetry:2": {}
+	},
+	"postCreateCommand": "poetry install",
+	"customizations": {
+		"vscode": {
+			"extensions": [
+				"zeshuaro.vscode-python-poetry",
+				"ms-python.black-formatter"
+			]
+		}
+	}
+}

@@ -1,0 +1,198 @@
+version: 37
+jobs:
+- name: Build
+  steps:
+  - !CheckoutStep
+    name: Checkout
+    cloneCredential: !DefaultCredential {}
+    withLfs: false
+    withSubmodules: false
+    condition: ALL_PREVIOUS_STEPS_WERE_SUCCESSFUL
+  - !CommandStep
+    name: Detect Build Version
+    runInContainer: true
+    image: alpine
+    interpreter: !DefaultInterpreter
+      commands: |
+        echo "Detecting buildVersion..."
+        sed -n 's/^version = \"\(.*\)\+\"/\1/p' pyproject.toml > build_version
+        echo Detected version: $(cat build_version)
+    useTTY: true
+    condition: ALL_PREVIOUS_STEPS_WERE_SUCCESSFUL
+  - !SetBuildVersionStep
+    name: Set Build Version
+    buildVersion: '@file:build_version@'
+    condition: ALL_PREVIOUS_STEPS_WERE_SUCCESSFUL
+  - !GenerateChecksumStep
+    name: Check Dep Hash
+    files: poetry.lock pyproject.toml
+    targetFile: dep_hash
+    condition: ALL_PREVIOUS_STEPS_WERE_SUCCESSFUL
+  - !SetupCacheStep
+    name: Cache Deps and Poetry
+    key: '@file:dep_hash@'
+    paths:
+    - .venv
+    - .poetry
+    uploadStrategy: UPLOAD_IF_NOT_HIT
+    condition: ALL_PREVIOUS_STEPS_WERE_SUCCESSFUL
+  - !CommandStep
+    name: Install Poetry
+    runInContainer: true
+    image: python:3.12-alpine
+    interpreter: !DefaultInterpreter
+      commands: "if [[ ! -e $POETRY_HOME/bin/poetry ]]; then\n\techo Could not find $POETRY_HOME/bin/poetry, installing Poetry...\n\tapk add curl && curl -sSL https://install.python-poetry.org | python3\nelse\n\techo Cached Poetry found at $POETRY_HOME/bin/poetry, not installing...\nfi\n"
+    envVars:
+    - name: POETRY_NO_INTERACTION
+      value: '1'
+    - name: POETRY_VIRTUALENVS_IN_PROJECT
+      value: '1'
+    - name: POETRY_VIRTUALENVS_CREATE
+      value: '1'
+    - name: POETRY_CACHE_DIR
+      value: /tmp/poetry_cache
+    - name: PIP_DISABLE_PIP_VERSION_CHECK
+      value: '1'
+    - name: PIP_NO_CACHE_DIR
+      value: '1'
+    - name: POETRY_VERSION
+      value: 1.8.2
+    - name: POETRY_HOME
+      value: /onedev-build/workspace/.poetry
+    useTTY: true
+    condition: ALL_PREVIOUS_STEPS_WERE_SUCCESSFUL
+  - !CommandStep
+    name: Install Deps
+    runInContainer: true
+    image: python:3.12-alpine
+    interpreter: !DefaultInterpreter
+      commands: |
+        $POETRY_HOME/bin/poetry install --only=main --no-root --no-interaction && rm -rf $POETRY_CACHE_DIR
+    envVars:
+    - name: POETRY_NO_INTERACTION
+      value: '1'
+    - name: POETRY_VIRTUALENVS_IN_PROJECT
+      value: '1'
+    - name: POETRY_VIRTUALENVS_CREATE
+      value: '1'
+    - name: POETRY_CACHE_DIR
+      value: /tmp/poetry_cache
+    - name: PIP_DISABLE_PIP_VERSION_CHECK
+      value: '1'
+    - name: PIP_NO_CACHE_DIR
+      value: '1'
+    - name: POETRY_VERSION
+      value: 1.8.2
+    - name: POETRY_HOME
+      value: /onedev-build/workspace/.poetry
+    useTTY: true
+    condition: ALL_PREVIOUS_STEPS_WERE_SUCCESSFUL
+  - !CommandStep
+    name: Build Library
+    runInContainer: true
+    image: python:3.12-alpine
+    interpreter: !DefaultInterpreter
+      commands: |
+        $POETRY_HOME/bin/poetry build
+    envVars:
+    - name: POETRY_NO_INTERACTION
+      value: '1'
+    - name: POETRY_VIRTUALENVS_IN_PROJECT
+      value: '1'
+    - name: POETRY_VIRTUALENVS_CREATE
+      value: '1'
+    - name: POETRY_CACHE_DIR
+      value: /tmp/poetry_cache
+    - name: PIP_DISABLE_PIP_VERSION_CHECK
+      value: '1'
+    - name: PIP_NO_CACHE_DIR
+      value: '1'
+    - name: POETRY_VERSION
+      value: 1.8.2
+    - name: POETRY_HOME
+      value: /onedev-build/workspace/.poetry
+    useTTY: true
+    condition: ALL_PREVIOUS_STEPS_WERE_SUCCESSFUL
+  - !PublishArtifactStep
+    name: Publish Artifacts
+    artifacts: dist/*.whl dist/*.tar.gz
+    condition: ALL_PREVIOUS_STEPS_WERE_SUCCESSFUL
+  triggers:
+  - !BranchUpdateTrigger
+    projects: mdbf
+  retryCondition: never
+  maxRetries: 3
+  retryDelay: 30
+  timeout: 14400
+- name: Publish
+  steps:
+  - !CheckoutStep
+    name: Checkout
+    cloneCredential: !DefaultCredential {}
+    withLfs: false
+    withSubmodules: false
+    condition: ALL_PREVIOUS_STEPS_WERE_SUCCESSFUL
+  - !CommandStep
+    name: Detect Build Version
+    runInContainer: true
+    image: alpine
+    interpreter: !DefaultInterpreter
+      commands: |
+        echo "Detecting buildVersion..."
+        sed -n 's/^version = \"\(.*\)\+\"/\1/p' pyproject.toml > build_version
+        echo Detected version: $(cat build_version)
+    useTTY: true
+    condition: ALL_PREVIOUS_STEPS_WERE_SUCCESSFUL
+  - !SetBuildVersionStep
+    name: Set Build Version
+    buildVersion: '@file:build_version@'
+    condition: ALL_PREVIOUS_STEPS_WERE_SUCCESSFUL
+  - !GenerateChecksumStep
+    name: Check Dep Hash
+    files: poetry.lock pyproject.toml
+    targetFile: dep_hash
+    condition: ALL_PREVIOUS_STEPS_WERE_SUCCESSFUL
+  - !SetupCacheStep
+    name: Cache Deps and Poetry
+    key: '@file:dep_hash@'
+    paths:
+    - .venv
+    - .poetry
+    uploadStrategy: UPLOAD_IF_NOT_HIT
+    condition: ALL_PREVIOUS_STEPS_WERE_SUCCESSFUL
+  - !CommandStep
+    name: Publish to Registry
+    runInContainer: true
+    image: python:3.12-alpine
+    interpreter: !DefaultInterpreter
+      commands: |
+        $POETRY_HOME/bin/poetry config repositories.od @server_url@/@project_path@/~pypi
+        $POETRY_HOME/bin/poetry config http-basic.od @job_token@ @secret:access-token@
+        $POETRY_HOME/bin/poetry publish -r od
+    envVars:
+    - name: POETRY_NO_INTERACTION
+      value: '1'
+    - name: POETRY_VIRTUALENVS_IN_PROJECT
+      value: '1'
+    - name: POETRY_VIRTUALENVS_CREATE
+      value: '1'
+    - name: POETRY_CACHE_DIR
+      value: /tmp/poetry_cache
+    - name: PIP_DISABLE_PIP_VERSION_CHECK
+      value: '1'
+    - name: PIP_NO_CACHE_DIR
+      value: '1'
+    - name: POETRY_VERSION
+      value: 1.8.2
+    - name: POETRY_HOME
+      value: /onedev-build/workspace/.poetry
+    useTTY: true
+    condition: ALL_PREVIOUS_STEPS_WERE_SUCCESSFUL
+  jobDependencies:
+  - jobName: Build
+    requireSuccessful: true
+    artifacts: '**'
+  retryCondition: never
+  maxRetries: 3
+  retryDelay: 30
+  timeout: 14400
