@@ -1,11 +1,13 @@
-from discord.ext.commands import Cog
 from os import environ
+
+from discord.ext.commands import Cog
 
 from ..utils import gen_config_hash
 
 
 class BaseCog(Cog, guild_ids=[int(environ.get("BOT_GUILD_ID"))]):
     """Base class for all cogs in the framework. Subclasses must implement the 'update' method to load config data."""
+
     config_hash = None
 
     def log(self, message: str) -> None:
