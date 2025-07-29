@@ -3,6 +3,7 @@ from os import environ
 
 import discord
 from discord.ext.commands import Bot
+import logging
 
 from .cogs import BaseCog
 from .utils import gen_config_hash, locate_config, read_config
@@ -11,40 +12,51 @@ from .utils import gen_config_hash, locate_config, read_config
 class MDBFBot(Bot):
     """An instance of a custom pycord bot that can be used with MDBF cogs and configs"""
 
-    # Map cogs to their config sections
-    cog_configs = None
-    config_hash = None
-    name = "Bot"
+    cog_configs: dict[str, str]
+    config_hash: bytes | None = None
+    name: str
+    admins: list[int] | None = None
 
     async def load_config(self, path: str) -> list[str]:
-        with open(path) as file:
+        """Load and validate the bot configuration."""
+        try:
             config = read_config(path)
-        if path != self.config_path:
-            self.config_path = path
-        config_hash = gen_config_hash(config)
-        if config_hash != self.config_hash:
-            self.admins = config["admins"]
-            updated = []
-            for cog in self.cogs:
-                # Reload the config for each cog that has one
-                if cog in self.cog_configs:
-                    if self.cogs[cog].load_config(config[self.cog_configs[cog]]):
-                        updated.append(cog)
-            return updated
-        else:
+        except Exception as e:
+            self.logger.error(f"Failed to load config: {e}")
             return []
 
-    async def init_cogs(self, cogs):
-        # The config has to be manually loaded here to init the cogs
-        # after that it can be reloaded via load_config instead
-        config = read_config(self.config_path)
-        for cog in cogs:
-            name = cog.__name__
-            # Some cogs don't have config options, so we need to check if the config exists
-            if name in self.cog_configs:
-                self.add_cog(cog(self, config[self.cog_configs[name]]))
-            else:  # If the cog doesn't have config options, just pass an empty dict
-                self.add_cog(cog(self, {}))
+        if path != self.config_path:
+            self.config_path = path
+
+        config_hash = gen_config_hash(config)
+        if config_hash != self.config_hash:
+            self.admins = config.get("admins")
+            if not self.admins:
+                raise ValueError("The 'admins' list is required in the configuration.")
+
+            updated = []
+            for cog_name, cog_instance in self.cogs.items():
+                if cog_name in self.cog_configs:
+                    cog_config_section = self.cog_configs[cog_name]
+                    try:
+                        if cog_instance.load_config(config.get(cog_config_section, {})):
+                            updated.append(cog_name)
+                    except Exception as e:
+                        self.logger.error(f"Failed to load config for cog {cog_name}: {e}")
+            self.config_hash = config_hash
+            return updated
+        return []
+
+    async def init_cogs(self, cogs: list[BaseCog]) -> None:
+        """Initialize cogs with their respective configurations."""
+        try:
+            config = read_config(self.config_path)
+            for cog in cogs:
+                cog_name = cog.__name__
+                cog_config = config.get(self.cog_configs.get(cog_name, {}), {})
+                self.add_cog(cog(self, cog_config, self.logger))
+        except Exception as e:
+            self.logger.error(f"Failed to initialize cogs: {e}")
 
     def __init__(
         self,
@@ -54,28 +66,39 @@ class MDBFBot(Bot):
         cog_configs: dict[str, str],
         *args,
         **kwargs,
-    ):
+    ) -> None:
         super().__init__(*args, **kwargs)
+
+        # Validate required environment variables
+        bot_token = environ.get("BOT_TOKEN")
+        bot_guild_id = environ.get("BOT_GUILD_ID")
+        if not bot_token or not bot_guild_id:
+            raise ValueError("Environment variables BOT_TOKEN and BOT_GUILD_ID are required.")
+
         self.name = name
         self.config_path = config_path
-        # Should map cog names to their config sections, i.e. {"FilterCog": "filter", "FunCog": "fun"}
         self.cog_configs = cog_configs
-        ensure_future(self.init_cogs(cogs))
-        # The cogs technically already have their configs loaded here,
-        # but we need to load the bot's config too. Given that the cogs check config hashes
-        # to determine if they need to actually reload their configs, this shouldn't cause any
-        # performance issues. They'll just skip reloading since the hash is the same.
-        ensure_future(self.load_config(self.config_path))
 
-    async def check_admin(self, usr: discord.User):
-        return usr.id in self.admins
+        # Initialize logger with bot's name
+        self.logger = logging.getLogger(__name__)
+        self.logger.setLevel(logging.INFO)
 
-    def serve(self):
-        """Start serving an MDBF bot instance"""
+        try:
+            ensure_future(self.init_cogs(cogs))
+            ensure_future(self.load_config(self.config_path))
+        except Exception as e:
+            self.logger.error(f"Failed to initialize bot: {e}")
+
+    async def check_admin(self, user: discord.User) -> bool:
+        """Check if a user is an admin."""
+        return user.id in self.admins if self.admins else False
+
+    def serve(self) -> None:
+        """Start serving the bot instance."""
 
         @self.listen(once=True)
-        async def on_ready():
-            print(f"{self.name} is ready (logged in as {self.user})")
+        async def on_ready() -> None:
+            self.logger.info(f"{self.name} is ready (logged in as {self.user})")
 
         @self.slash_command(
             name="reload",
@@ -83,26 +106,29 @@ class MDBFBot(Bot):
         )
         async def reload_command(ctx: discord.ApplicationContext) -> None:
             if await self.check_admin(ctx.author):
-                config_path = locate_config()
-                print(
-                    f"{self.name} >> {ctx.author.name} requested a config reload, using file {
-                        config_path}..."
-                )
-                updated = await self.load_config(config_path)
-                if len(updated):
-                    await ctx.interaction.response.send_message(
-                        f"Configuration reloaded for cogs: {
-                            ', '.join(updated)}",
-                        ephemeral=True,
+                try:
+                    config_path = locate_config()
+                    self.logger.info(
+                        f"{ctx.author.name} requested a config reload, using file {config_path}..."
                     )
-                else:
+                    updated = await self.load_config(config_path)
+                    if updated:
+                        await ctx.interaction.response.send_message(
+                            f"Configuration reloaded for cogs: {', '.join(updated)}",
+                            ephemeral=True,
+                        )
+                    else:
+                        await ctx.interaction.response.send_message(
+                            "No configuration changes detected", ephemeral=True
+                        )
+                except Exception as e:
+                    self.logger.error(f"Failed to reload configuration: {e}")
                     await ctx.interaction.response.send_message(
-                        "No configuration changes detected", ephemeral=True
+                        "An error occurred while reloading the configuration.", ephemeral=True
                     )
             else:
-                print(
-                    f"{self.name} >> {
-                        ctx.author.name} requested a config reload, but they are not an admin"
+                self.logger.warning(
+                    f"{ctx.author.name} requested a config reload, but they are not an admin"
                 )
                 await ctx.interaction.response.send_message(
                     "You do not have permission to use this command", ephemeral=True
