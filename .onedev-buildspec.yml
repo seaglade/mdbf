@@ -117,7 +117,7 @@ jobs:
   - !CommandStep
     name: Publish to Registry
     runInContainer: true
-    image: python:3.12-alpine
+    image: ghcr.io/astral-sh/uv:python3.12-alpine
     interpreter: !DefaultInterpreter
       commands: |
         uv publish --cache-dir .uvcache --publish-url https://onedev.kiarc.win/mdbf/~pypi/upload --check-url https://onedev.kiarc.win/mdbf/~pypi/simple -u @job_token@ -p @secret:access-token@
