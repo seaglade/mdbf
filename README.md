@@ -1,6 +1,6 @@
 # Modular Discord Bot Framework
 
-A template for Discord bots based on `pycord` with built-in handling of config files (YAML or TOML), Docker packaging, and modular components powered by Cogs.
+A template for Discord bots based on `pycord` with built-in handling of config files (YAML or TOML), easy Docker packaging, and modular components powered by Cogs.
 
 ## Building a bot with MDBF
 
@@ -70,19 +70,19 @@ Which would configure it to react with sparkles to its name being mentioned. Mor
 
 ### Config
 
-MDBF Handles config reloads via an application command: `/reload`. It can only be run by configured admins, and rather than restarting the whole bot, it triggers a reload of each Cog individually. This is the main advantage of MDBF over `pycord`: Configs are handled fully by MDBF, and exposed as dicts to Cogs. If the config hasn't changed, the reload is automatically skipped, and if it has, the Cog can reload itself in real time without interrupting other cogs.
+MDBF Handles config reloads via an application command: `/reload`. It can only be run by configured admins, and rather than restarting the whole bot, it triggers a reload of each Cog individually. This is the main advantage of MDBF over just using `pycord`: Configs are handled fully by MDBF, and exposed as normal Python dictionaries to Cogs. If the config hasn't changed, no reload is performed, and if it has, the Cog can reload itself in real time without interrupting other cogs.
 
 Each Cog needs to implement its own `update` function, which should re-assign any values read from config, and perform any other config dependent initialization logic, such as compiling regexes, caching images from URLs, connecting to databases, etc. This method is automatically called by MDBF when a config change is detected during a `reload`, and at Cog initialization.
 
-Configs can be provided at the following paths: `config.yaml` or `config.yml` (YAML format) or `config.toml`. Only one config file should be provided! There are also two "config" values that must be passed as environment variables: `BOT_TOKEN` and `BOT_GUILD_ID`. The only config included in MDBF itself is `admins`, which is a list of user IDs for users who should be considered "admins" of the bot. They will be able to reload the config, and you can use the `check_admin` function provided by your MDBFBot instance in your Cogs to alter behavior (for example, an `if` statement in an application command to send an error instead of executing a command when run by a non-admin)
+Configs can be provided at the following paths: `config.yaml` or `config.yml` (YAML format) or `config.toml` (TOML format). Only one config file should be provided! There are also two "config" values that must be passed as environment variables: `BOT_TOKEN` and `BOT_GUILD_ID`. The only config option present in MDBF itself is `admins`, which is a list of user IDs for users who should be considered "admins" of the bot. They will be able to reload the config, and you can use the `check_admin` function provided by your MDBFBot instance in your Cogs to alter behavior (for example, an `if` statement in an application command to send an error instead of executing a command when run by a non-admin). Any other configuration is determined by your implementation.
 
 ### Packaging your bot with Docker
 
-This repo includes a `Dockerfile.example` file that can be used to build your bot, assuming you use Poetry for project management (which you should!), put your Cogs in the `./cogs/` directory and your bot initialization in `./main.py`, both relative to your project root. If that's the case, you can just build the image with your favorite CICD tool and run the image wherever you want to host your bot.
+This repo includes a `Dockerfile.example` file that can be used to build your bot, assuming you use UV for project management (which you should, because it's great!) and put your Cogs in the `./cogs/` directory and your bot initialization in `./main.py`, both relative to your project root. If that's the case, you can just build the image with your favorite CICD tool and run the image wherever you want to host your bot.
 
 ### Hosting your bot with Docker Compose
 
-An instance of a bot built on MDBF **can only exist in a single guild!**. This is intentional, to avoid the need to manage state across multiple servers. I'm open to advice on how to implement multi-guild functionality, but it isn't planned since all of my own bots are specific to certain servers. You can also just host multiple instances of the same bot in different guilds, if you want. The following guide explains how to set up an individual instance using Docker Compose.
+An instance of a bot built on MDBF **can only exist in a single guild!**. This is intentional, to avoid the need to manage state across multiple servers. I'm open to advice on how to implement multi-guild functionality, but it isn't planned since all of my own bots are specific to certain servers. You can also just host multiple instances of the same bot in different guilds, if you want. The following mini-guide explains how to set up an individual instance using Docker Compose.
 
 1. Build the docker image. I currently use OneDev for CICD, but you can do it manually, with GitHub Actions, with Drone... In the next steps I'll use `bot:latest` to refer to the image, but you should replace that with wherever your image is located.
 2. Make a bot in the Discord Developer Console. Copy its token. I'll use `<token>` where you should paste it.
