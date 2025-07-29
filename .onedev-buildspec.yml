@@ -120,7 +120,7 @@ jobs:
     image: ghcr.io/astral-sh/uv:python3.12-alpine
     interpreter: !DefaultInterpreter
       commands: |
-        uv publish --cache-dir .uvcache --publish-url https://onedev.kiarc.win/mdbf/~pypi/upload --check-url https://onedev.kiarc.win/mdbf/~pypi/simple -u @job_token@ -p @secret:access-token@
+        uv publish --cache-dir .uvcache --publish-url https://onedev.kiarc.win/mdbf/~pypi --check-url https://onedev.kiarc.win/mdbf/~pypi/simple -u @job_token@ -p @secret:access-token@
     useTTY: true
     condition: SUCCESSFUL
     optional: false
