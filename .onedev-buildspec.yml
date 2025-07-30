@@ -64,7 +64,7 @@ jobs:
     image: ghcr.io/astral-sh/uv:python3.12-bookworm-slim
     interpreter: !DefaultInterpreter
       commands: |
-        uv run --with mypy --no-install-project --cache-dir .uvcache -- mypy --exclude .git --exclude .venv --exclude .uvcache --check-untyped-defs . > mypy-report
+        uv run --with mypy --no-sync --cache-dir .uvcache -- mypy --exclude .git --exclude .venv --exclude .uvcache --check-untyped-defs . > mypy-report
     useTTY: true
     condition: ALWAYS
     optional: true
