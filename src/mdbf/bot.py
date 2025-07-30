@@ -16,6 +16,9 @@ class MDBFBot(Bot):
     config_hash: bytes | None = None
     name: str
     admins: list[int] | None = None
+    logger: logging.Logger
+    config_path: str
+    cogs: dict[str, BaseCog] = {}
 
     async def load_config(self, path: str) -> list[str]:
         """Load and validate the bot configuration."""
@@ -42,18 +45,20 @@ class MDBFBot(Bot):
                         if cog_instance.load_config(config.get(cog_config_section, {})):
                             updated.append(cog_name)
                     except Exception as e:
-                        self.logger.error(f"Failed to load config for cog {cog_name}: {e}")
+                        self.logger.error(
+                            f"Failed to load config for cog {cog_name}: {e}"
+                        )
             self.config_hash = config_hash
             return updated
         return []
 
-    async def init_cogs(self, cogs: list[BaseCog]) -> None:
+    async def init_cogs(self, cogs: list[type[BaseCog]]) -> None:
         """Initialize cogs with their respective configurations."""
         try:
             config = read_config(self.config_path)
             for cog in cogs:
                 cog_name = cog.__name__
-                cog_config = config.get(self.cog_configs.get(cog_name, {}), {})
+                cog_config = config.get(self.cog_configs.get(cog_name, ""), {})
                 self.add_cog(cog(self, cog_config, self.logger))
         except Exception as e:
             self.logger.error(f"Failed to initialize cogs: {e}")
@@ -62,7 +67,7 @@ class MDBFBot(Bot):
         self,
         name: str,
         config_path: str,
-        cogs: list[BaseCog],
+        cogs: list[type[BaseCog]],
         cog_configs: dict[str, str],
         *args,
         **kwargs,
@@ -73,7 +78,9 @@ class MDBFBot(Bot):
         bot_token = environ.get("BOT_TOKEN")
         bot_guild_id = environ.get("BOT_GUILD_ID")
         if not bot_token or not bot_guild_id:
-            raise ValueError("Environment variables BOT_TOKEN and BOT_GUILD_ID are required.")
+            raise ValueError(
+                "Environment variables BOT_TOKEN and BOT_GUILD_ID are required."
+            )
 
         self.name = name
         self.config_path = config_path
@@ -89,7 +96,7 @@ class MDBFBot(Bot):
         except Exception as e:
             self.logger.error(f"Failed to initialize bot: {e}")
 
-    async def check_admin(self, user: discord.User) -> bool:
+    async def check_admin(self, user: discord.User | discord.Member) -> bool:
         """Check if a user is an admin."""
         return user.id in self.admins if self.admins else False
 
@@ -124,7 +131,8 @@ class MDBFBot(Bot):
                 except Exception as e:
                     self.logger.error(f"Failed to reload configuration: {e}")
                     await ctx.interaction.response.send_message(
-                        "An error occurred while reloading the configuration.", ephemeral=True
+                        "An error occurred while reloading the configuration.",
+                        ephemeral=True,
                     )
             else:
                 self.logger.warning(

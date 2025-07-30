@@ -9,6 +9,9 @@ from ..utils import gen_config_hash
 class BaseCog(Cog, guild_ids=[int(environ.get("BOT_GUILD_ID", 0))]):
     """Base class for all cogs in the framework."""
 
+    config_hash: bytes
+    cogname: str
+
     LOG_LEVELS = {
         "debug": logging.debug,
         "info": logging.info,
@@ -21,16 +24,19 @@ class BaseCog(Cog, guild_ids=[int(environ.get("BOT_GUILD_ID", 0))]):
         """Initialize the cog with the bot, config data, and logger instance."""
         self.bot = bot
         self.logger = logger_instance
+
         try:
             self.load_config(config)
-            self.log(f"Initialized {self.__class__.__name__}")
+            self.log(f"Initialized {type(self).__name__}")
         except Exception as e:
-            self.log(f"Failed to initialize cog {self.__class__.__name__}: {e}", level="error")
+            self.log(
+                f"Failed to initialize cog {type(self).__name__}: {e}", level="error"
+            )
 
     def log(self, message: str, level: str = "info") -> None:
         """Log a message using the logger instance with a specified level."""
         log_method = self.LOG_LEVELS.get(level, self.logger.info)
-        log_method(f"{self.__class__.__name__}:{message}")
+        log_method(f"{type(self).__name__}:{message}")
 
     def update(self, config: dict) -> None:
         """Update existing config data with new config data."""
@@ -48,9 +54,12 @@ class BaseCog(Cog, guild_ids=[int(environ.get("BOT_GUILD_ID", 0))]):
                 self.update(config)
                 self.config_hash = config_hash
                 if not quiet:
-                    self.log(f"Updated {self.__class__.__name__} config")
+                    self.log(f"Updated {type(self).__name__} config")
                 return True
             return False
         except Exception as e:
-            self.log(f"Failed to load config for cog {self.__class__.__name__}: {e}", level="error")
+            self.log(
+                f"Failed to load config for cog {type(self).__name__}: {e}",
+                level="error",
+            )
             return False
