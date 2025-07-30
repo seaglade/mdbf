@@ -58,11 +58,13 @@ jobs:
     useTTY: true
     condition: ALWAYS
     optional: false
-  - !RunContainerStep
+  - !CommandStep
     name: MyPy Scan
-    image: cytopia/mypy
-    args: --exclude .git --exclude .venv --check-untyped-defs . > mypy-report
-    workingDir: /onedev-build/workspace
+    runInContainer: true
+    image: ghcr.io/astral-sh/uv:python3.12-alpine
+    interpreter: !DefaultInterpreter
+      commands: |
+        uvx --cache-dir .uvcache mypy --exclude .git --exclude .venv --check-untyped-defs . > mypy-report
     useTTY: true
     condition: ALWAYS
     optional: false
