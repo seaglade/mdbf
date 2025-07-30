@@ -10,12 +10,7 @@ requires-python = "~=3.12.0"
 version = "0.4.1"
 
 [dependency-groups]
-dev = [
- "pre-commit~=4.1.0",
- "ruff>=0.12.5",
- "types-pyyaml>=6.0.12.20250516",
- "types-toml>=0.10.8.20240310",
-]
+dev = [ "types-pyyaml>=6.0.12.20250516", "types-toml>=0.10.8.20240310" ]
 
 [build-system]
 build-backend = "uv_build"

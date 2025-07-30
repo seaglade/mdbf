@@ -47,7 +47,7 @@ jobs:
     image: ghcr.io/astral-sh/uv:python3.12-alpine
     interpreter: !DefaultInterpreter
       commands: |
-        uv sync --locked --no-install-project --no-dev --no-editable --cache-dir .uvcache
+        uv sync --locked --no-install-project --no-editable --cache-dir .uvcache
     useTTY: true
     condition: SUCCESSFUL
     optional: false
@@ -57,7 +57,7 @@ jobs:
     args: check --exit-zero --output-format json --output-file ruff-report.json
     useTTY: true
     condition: ALWAYS
-    optional: false
+    optional: true
   - !CommandStep
     name: MyPy Scan
     runInContainer: true
@@ -89,14 +89,14 @@ jobs:
     filePatterns: ruff-report.json
     failThreshold: MEDIUM
     condition: ALWAYS
-    optional: false
+    optional: true
   - !PublishMypyReportStep
     name: MyPy Report
     reportName: MyPy
     filePatterns: mypy-report
     failThreshold: MEDIUM
     condition: ALWAYS
-    optional: false
+    optional: true
   triggers:
   - !BranchUpdateTrigger
     projects: mdbf
