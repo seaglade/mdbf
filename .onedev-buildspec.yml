@@ -61,7 +61,7 @@ jobs:
   - !RunContainerStep
     name: MyPy Scan
     image: cytopia/mypy
-    args: --exclude .git --exclude .venv . > mypy-report
+    args: --exclude .git --exclude .venv src/** > mypy-report
     useTTY: true
     condition: ALWAYS
     optional: false
