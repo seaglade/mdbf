@@ -61,7 +61,7 @@ jobs:
   - !CommandStep
     name: MyPy Scan
     runInContainer: true
-    image: ghcr.io/astral-sh/uv:python3.12-alpine
+    image: ghcr.io/astral-sh/uv:python3.12-bookworm-slim
     interpreter: !DefaultInterpreter
       commands: |
         uvx --cache-dir .uvcache mypy --exclude .git --exclude .venv --check-untyped-defs . > mypy-report
