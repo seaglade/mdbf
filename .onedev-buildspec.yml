@@ -1,4 +1,4 @@
-version: 37
+version: 40
 jobs:
 - name: Build
   steps:
@@ -7,7 +7,8 @@ jobs:
     cloneCredential: !DefaultCredential {}
     withLfs: false
     withSubmodules: false
-    condition: ALL_PREVIOUS_STEPS_WERE_SUCCESSFUL
+    condition: SUCCESSFUL
+    optional: false
   - !CommandStep
     name: Detect Build Version
     runInContainer: true
@@ -18,16 +19,19 @@ jobs:
         sed -n 's/^version = \"\(.*\)\+\"/\1/p' pyproject.toml > build_version
         echo Detected version: $(cat build_version)
     useTTY: true
-    condition: ALL_PREVIOUS_STEPS_WERE_SUCCESSFUL
+    condition: SUCCESSFUL
+    optional: false
   - !SetBuildVersionStep
     name: Set Build Version
     buildVersion: '@file:build_version@'
-    condition: ALL_PREVIOUS_STEPS_WERE_SUCCESSFUL
+    condition: SUCCESSFUL
+    optional: false
   - !GenerateChecksumStep
     name: Check Dep Hash
     files: uv.lock pyproject.toml
     targetFile: dep_hash
-    condition: ALL_PREVIOUS_STEPS_WERE_SUCCESSFUL
+    condition: SUCCESSFUL
+    optional: false
   - !SetupCacheStep
     name: Cache Deps and UV
     key: '@file:dep_hash@'
@@ -35,7 +39,8 @@ jobs:
     - .venv
     - .uvcache
     uploadStrategy: UPLOAD_IF_NOT_HIT
-    condition: ALL_PREVIOUS_STEPS_WERE_SUCCESSFUL
+    condition: SUCCESSFUL
+    optional: false
   - !CommandStep
     name: Install Deps with UV
     runInContainer: true
@@ -44,7 +49,8 @@ jobs:
       commands: |
         uv sync --locked --no-install-project --no-dev --no-editable --cache-dir .uvcache
     useTTY: true
-    condition: ALL_PREVIOUS_STEPS_WERE_SUCCESSFUL
+    condition: SUCCESSFUL
+    optional: false
   - !CommandStep
     name: Build Library
     runInContainer: true
@@ -53,11 +59,13 @@ jobs:
       commands: |
         uv build --cache-dir .uvcache
     useTTY: true
-    condition: ALL_PREVIOUS_STEPS_WERE_SUCCESSFUL
+    condition: SUCCESSFUL
+    optional: false
   - !PublishArtifactStep
     name: Publish Artifacts
     artifacts: dist/*.whl dist/*.tar.gz
-    condition: ALL_PREVIOUS_STEPS_WERE_SUCCESSFUL
+    condition: SUCCESSFUL
+    optional: false
   triggers:
   - !BranchUpdateTrigger
     projects: mdbf
@@ -72,7 +80,8 @@ jobs:
     cloneCredential: !DefaultCredential {}
     withLfs: false
     withSubmodules: false
-    condition: ALL_PREVIOUS_STEPS_WERE_SUCCESSFUL
+    condition: SUCCESSFUL
+    optional: false
   - !CommandStep
     name: Detect Build Version
     runInContainer: true
@@ -83,16 +92,19 @@ jobs:
         sed -n 's/^version = \"\(.*\)\+\"/\1/p' pyproject.toml > build_version
         echo Detected version: $(cat build_version)
     useTTY: true
-    condition: ALL_PREVIOUS_STEPS_WERE_SUCCESSFUL
+    condition: SUCCESSFUL
+    optional: false
   - !SetBuildVersionStep
     name: Set Build Version
     buildVersion: '@file:build_version@'
-    condition: ALL_PREVIOUS_STEPS_WERE_SUCCESSFUL
+    condition: SUCCESSFUL
+    optional: false
   - !GenerateChecksumStep
     name: Check Dep Hash
     files: uv.lock pyproject.toml
     targetFile: dep_hash
-    condition: ALL_PREVIOUS_STEPS_WERE_SUCCESSFUL
+    condition: SUCCESSFUL
+    optional: false
   - !SetupCacheStep
     name: Cache Deps and UV
     key: '@file:dep_hash@'
@@ -100,16 +112,20 @@ jobs:
     - .venv
     - .uvcache
     uploadStrategy: UPLOAD_IF_NOT_HIT
-    condition: ALL_PREVIOUS_STEPS_WERE_SUCCESSFUL
+    condition: SUCCESSFUL
+    optional: false
   - !CommandStep
     name: Publish to Registry
     runInContainer: true
-    image: python:3.12-alpine
+    image: ghcr.io/astral-sh/uv:python3.12-alpine
     interpreter: !DefaultInterpreter
       commands: |
-        uv publish --cache-dir .uvcache --publish-url https://onedev.kiarc.win/mdbf/~pypi/upload --check-url https://onedev.kiarc.win/mdbf/~pypi/simple -u @job_token@ -p @secret:access-token@
+        uv publish --cache-dir .uvcache --publish-url https://onedev.kiarc.win/mdbf/~pypi --check-url https://onedev.kiarc.win/mdbf/~pypi/simple -u @job_token@ -p @secret:access-token@
     useTTY: true
-    condition: ALL_PREVIOUS_STEPS_WERE_SUCCESSFUL
+    condition: SUCCESSFUL
+    optional: false
+  triggers:
+  - !TagCreateTrigger {}
   jobDependencies:
   - jobName: Build
     requireSuccessful: true
