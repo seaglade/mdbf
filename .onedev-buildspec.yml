@@ -1,6 +1,6 @@
 version: 40
 jobs:
-- name: Build
+- name: CICD
   steps:
   - !CheckoutStep
     name: Checkout
@@ -9,72 +9,31 @@ jobs:
     withSubmodules: false
     condition: SUCCESSFUL
     optional: false
-  - !CommandStep
-    name: Detect Build Version
-    runInContainer: true
-    image: alpine
-    interpreter: !DefaultInterpreter
-      commands: |
-        echo "Detecting buildVersion..."
-        sed -n 's/^version = \"\(.*\)\+\"/\1/p' pyproject.toml > build_version
-        echo Detected version: $(cat build_version)
-    useTTY: true
+  - !UseTemplateStep
+    name: Detect Version
+    templateName: Python Detect Version
     condition: SUCCESSFUL
     optional: false
-  - !SetBuildVersionStep
-    name: Set Build Version
-    buildVersion: '@file:build_version@'
+  - !UseTemplateStep
+    name: UV Cache and Sync
+    templateName: UV Cache and Sync
     condition: SUCCESSFUL
     optional: false
-  - !GenerateChecksumStep
-    name: Check Dep Hash
-    files: uv.lock pyproject.toml
-    targetFile: dep_hash
+  - !UseTemplateStep
+    name: Linter
+    templateName: Python Lint
     condition: SUCCESSFUL
     optional: false
-  - !SetupCacheStep
-    name: Cache Deps and UV
-    key: '@file:dep_hash@'
-    paths:
-    - .venv
-    - .uvcache
-    uploadStrategy: UPLOAD_IF_NOT_HIT
-    condition: SUCCESSFUL
-    optional: false
-  - !CommandStep
-    name: Install Deps with UV
-    runInContainer: true
-    image: ghcr.io/astral-sh/uv:python3.12-alpine
-    interpreter: !DefaultInterpreter
-      commands: |
-        uv sync --locked --no-install-project --no-editable --cache-dir .uvcache
-    useTTY: true
-    condition: SUCCESSFUL
-    optional: false
-  - !RunContainerStep
-    name: Ruff Scan
-    image: ghcr.io/astral-sh/ruff
-    args: check --exit-zero --output-format json --output-file ruff-report.json
-    useTTY: true
-    condition: ALWAYS
-    optional: true
-  - !CommandStep
-    name: MyPy Scan
-    runInContainer: true
-    image: ghcr.io/astral-sh/uv:python3.12-bookworm-slim
-    interpreter: !DefaultInterpreter
-      commands: |
-        uv run --with mypy --no-sync --cache-dir .uvcache -- mypy --exclude .git --exclude .venv --exclude .uvcache --check-untyped-defs . > mypy-report
-    useTTY: true
-    condition: ALWAYS
-    optional: true
   - !CommandStep
     name: Build Library
     runInContainer: true
-    image: ghcr.io/astral-sh/uv:python3.12-alpine
+    image: ghcr.io/astral-sh/uv:python3.13-bookworm-slim
     interpreter: !DefaultInterpreter
       commands: |
-        uv build --cache-dir .uvcache
+        uv build --python-preference=only-managed --cache-dir .uvcache
+    envVars:
+    - name: UV_PYTHON_INSTALL_DIR
+      value: /onedev-build/workspace/.uvpython
     useTTY: true
     condition: SUCCESSFUL
     optional: false
@@ -83,20 +42,6 @@ jobs:
     artifacts: dist/*.whl dist/*.tar.gz
     condition: SUCCESSFUL
     optional: false
-  - !PublishRuffReportStep
-    name: Ruff Report
-    reportName: Ruff
-    filePatterns: ruff-report.json
-    failThreshold: MEDIUM
-    condition: ALWAYS
-    optional: true
-  - !PublishMypyReportStep
-    name: MyPy Report
-    reportName: MyPy
-    filePatterns: mypy-report
-    failThreshold: MEDIUM
-    condition: ALWAYS
-    optional: true
   triggers:
   - !BranchUpdateTrigger
     projects: mdbf
@@ -113,55 +58,38 @@ jobs:
     withSubmodules: false
     condition: SUCCESSFUL
     optional: false
-  - !CommandStep
-    name: Detect Build Version
-    runInContainer: true
-    image: alpine
-    interpreter: !DefaultInterpreter
-      commands: |
-        echo "Detecting buildVersion..."
-        sed -n 's/^version = \"\(.*\)\+\"/\1/p' pyproject.toml > build_version
-        echo Detected version: $(cat build_version)
-    useTTY: true
+  - !UseTemplateStep
+    name: Detect Version
+    templateName: Python Detect Version
     condition: SUCCESSFUL
     optional: false
-  - !SetBuildVersionStep
-    name: Set Build Version
-    buildVersion: '@file:build_version@'
+  - !UseTemplateStep
+    name: UV Cache and Sync
+    templateName: UV Cache and Sync
     condition: SUCCESSFUL
     optional: false
-  - !GenerateChecksumStep
-    name: Check Dep Hash
-    files: uv.lock pyproject.toml
-    targetFile: dep_hash
-    condition: SUCCESSFUL
-    optional: false
-  - !SetupCacheStep
-    name: Cache Deps and UV
-    key: '@file:dep_hash@'
-    paths:
-    - .venv
-    - .uvcache
-    uploadStrategy: UPLOAD_IF_NOT_HIT
-    condition: SUCCESSFUL
-    optional: false
-  - !CommandStep
-    name: Publish to Registry
-    runInContainer: true
-    image: ghcr.io/astral-sh/uv:python3.12-alpine
-    interpreter: !DefaultInterpreter
-      commands: |
-        uv publish --cache-dir .uvcache --publish-url https://onedev.kiarc.win/mdbf/~pypi --check-url https://onedev.kiarc.win/mdbf/~pypi/simple -u @job_token@ -p @secret:access-token@
-    useTTY: true
+  - !UseTemplateStep
+    name: Publish to Local Registry
+    templateName: UV Publish to OD PyPI
+    paramMatrix:
+    - name: access-token
+      secret: true
+      valuesProvider: !SpecifiedValues
+        values:
+        - - access-token
     condition: SUCCESSFUL
     optional: false
   triggers:
   - !TagCreateTrigger {}
   jobDependencies:
-  - jobName: Build
+  - jobName: CICD
     requireSuccessful: true
     artifacts: '**'
   retryCondition: never
   maxRetries: 3
   retryDelay: 30
   timeout: 14400
+imports:
+- projectPath: buildspec_shared
+  revision: main
+  accessTokenSecret: buildspec-access-token
