@@ -51,6 +51,23 @@ jobs:
     useTTY: true
     condition: SUCCESSFUL
     optional: false
+  - !RunContainerStep
+    name: Ruff Scan
+    image: ghcr.io/astral-sh/ruff
+    args: check --exit-zero --output-format json --output-file ruff-report.json
+    useTTY: true
+    condition: ALWAYS
+    optional: false
+  - !CommandStep
+    name: MyPy Scan
+    runInContainer: true
+    image: ghcr.io/astral-sh/uv:python3.12-bookworm-slim
+    interpreter: !DefaultInterpreter
+      commands: |
+        uv run --with mypy --no-sync --cache-dir .uvcache -- mypy --exclude .git --exclude .venv --exclude .uvcache --check-untyped-defs . > mypy-report
+    useTTY: true
+    condition: ALWAYS
+    optional: true
   - !CommandStep
     name: Build Library
     runInContainer: true
@@ -65,6 +82,20 @@ jobs:
     name: Publish Artifacts
     artifacts: dist/*.whl dist/*.tar.gz
     condition: SUCCESSFUL
+    optional: false
+  - !PublishRuffReportStep
+    name: Ruff Report
+    reportName: Ruff
+    filePatterns: ruff-report.json
+    failThreshold: MEDIUM
+    condition: ALWAYS
+    optional: false
+  - !PublishMypyReportStep
+    name: MyPy Report
+    reportName: MyPy
+    filePatterns: mypy-report
+    failThreshold: MEDIUM
+    condition: ALWAYS
     optional: false
   triggers:
   - !BranchUpdateTrigger
