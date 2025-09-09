@@ -1,10 +1,11 @@
+import json
+import typing
 from base64 import b64encode
 from hashlib import md5
-import json
 from os import path
-import typing
-import yaml
+
 import toml
+import yaml
 
 
 def locate_config():
@@ -56,8 +57,7 @@ def read_config(config_path: str) -> dict[str, typing.Any]:
                 case "toml":
                     result = toml.load(file)
                 case _:
-                    raise ValueError(
-                        "Extension {ext} is not one of: [yml, yaml, toml]")
+                    raise ValueError("Extension {ext} is not one of: [yml, yaml, toml]")
         return result
 
 

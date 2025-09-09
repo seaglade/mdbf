@@ -1,15 +1,16 @@
+from asyncio import ensure_future
+from os import environ
+
 import discord
 from discord.ext.commands import Bot
-from asyncio import ensure_future
 
-from .utils import locate_config, read_config, gen_config_hash
 from .cogs import BaseCog
-
-from os import environ
+from .utils import gen_config_hash, locate_config, read_config
 
 
 class MDBFBot(Bot):
     """An instance of a custom pycord bot that can be used with MDBF cogs and configs"""
+
     # Map cogs to their config sections
     cog_configs = None
     config_hash = None
@@ -52,7 +53,7 @@ class MDBFBot(Bot):
         cogs: list[BaseCog],
         cog_configs: dict[str, str],
         *args,
-        **kwargs
+        **kwargs,
     ):
         super().__init__(*args, **kwargs)
         self.name = name
@@ -71,6 +72,7 @@ class MDBFBot(Bot):
 
     def serve(self):
         """Start serving an MDBF bot instance"""
+
         @self.listen(once=True)
         async def on_ready():
             print(f"{self.name} is ready (logged in as {self.user})")

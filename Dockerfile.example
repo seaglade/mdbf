@@ -13,7 +13,7 @@ ENV POETRY_NO_INTERACTION=1 \
     PIP_NO_CACHE_DIR=1 \
     POETRY_VERSION=1.8.2
 
-# Poetry setup 
+# Poetry setup
 RUN pip install "poetry==$POETRY_VERSION"
 
 # Install dependencies
