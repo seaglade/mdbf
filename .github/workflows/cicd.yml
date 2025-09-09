@@ -17,6 +17,9 @@ jobs:
         run: uv run -- mypy --exclude .git --exclude .venv --check-untyped-defs .
   build:
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
     needs: lint
     if: github.ref == 'refs/heads/main'
     steps:
