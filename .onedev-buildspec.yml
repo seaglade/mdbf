@@ -1,49 +1,58 @@
-version: 40
+version: 52
+imports:
+- projectPath: buildspec_shared
+  revision: main
+  accessTokenSecret: buildspec-access-token
 jobs:
 - name: CICD
   steps:
-  - !CheckoutStep
+  - type: CheckoutStep
     name: Checkout
-    cloneCredential: !DefaultCredential {}
+    cloneCredential:
+      type: DefaultCredential
     withLfs: false
     withSubmodules: false
     condition: SUCCESSFUL
     optional: false
-  - !UseTemplateStep
+  - type: UseTemplateStep
     name: Detect Version
     templateName: Python Detect Version
     condition: SUCCESSFUL
     optional: false
-  - !UseTemplateStep
+  - type: UseTemplateStep
     name: UV Cache and Sync
     templateName: UV Cache and Sync
     condition: SUCCESSFUL
     optional: false
-  - !UseTemplateStep
+  - type: UseTemplateStep
     name: Linter
     templateName: Python Lint
     condition: SUCCESSFUL
     optional: false
-  - !CommandStep
+  - type: CommandStep
     name: Build Library
     runInContainer: true
     image: ghcr.io/astral-sh/uv:python3.13-bookworm-slim
-    interpreter: !DefaultInterpreter
+    interpreter:
+      type: PosixInterpreter
+      shell: sh
       commands: |
         uv build --python-preference=only-managed --cache-dir .uvcache
+    runAs: 0:0
     envVars:
     - name: UV_PYTHON_INSTALL_DIR
       value: /onedev-build/workspace/.uvpython
     useTTY: true
     condition: SUCCESSFUL
     optional: false
-  - !PublishArtifactStep
+  - type: PublishArtifactStep
     name: Publish Artifacts
     artifacts: dist/*.whl dist/*.tar.gz
     condition: SUCCESSFUL
     optional: false
   triggers:
-  - !BranchUpdateTrigger
+  - type: BranchUpdateTrigger
+    userMatch: anyone
     projects: mdbf
   retryCondition: never
   maxRetries: 3
@@ -51,36 +60,78 @@ jobs:
   timeout: 14400
 - name: Publish
   steps:
-  - !CheckoutStep
+  - type: CheckoutStep
     name: Checkout
-    cloneCredential: !DefaultCredential {}
+    cloneCredential:
+      type: DefaultCredential
     withLfs: false
     withSubmodules: false
     condition: SUCCESSFUL
     optional: false
-  - !UseTemplateStep
+  - type: UseTemplateStep
     name: Detect Version
     templateName: Python Detect Version
     condition: SUCCESSFUL
     optional: false
-  - !UseTemplateStep
+  - type: UseTemplateStep
     name: UV Cache and Sync
     templateName: UV Cache and Sync
     condition: SUCCESSFUL
     optional: false
-  - !UseTemplateStep
-    name: Publish to Local Registry
-    templateName: UV Publish to OD PyPI
+  - type: UseTemplateStep
+    name: Publish to OneDev
+    templateName: UV Publish
     paramMatrix:
-    - name: access-token
+    - valuesProvider:
+        type: SpecifiedValues
+        values:
+        - - onedev
+      secret: false
+      name: index
+    - valuesProvider:
+        type: IgnoreValues
       secret: true
-      valuesProvider: !SpecifiedValues
+      name: token
+    - valuesProvider:
+        type: SpecifiedValues
+        values:
+        - - '@job_token@'
+      secret: false
+      name: username
+    - valuesProvider:
+        type: SpecifiedValues
         values:
         - - access-token
+      secret: true
+      name: password
+    condition: SUCCESSFUL
+    optional: false
+  - type: UseTemplateStep
+    name: Publish to PyPI
+    templateName: UV Publish
+    paramMatrix:
+    - valuesProvider:
+        type: IgnoreValues
+      secret: false
+      name: index
+    - valuesProvider:
+        type: SpecifiedValues
+        values:
+        - - pypi-token
+      secret: true
+      name: token
+    - valuesProvider:
+        type: IgnoreValues
+      secret: false
+      name: username
+    - valuesProvider:
+        type: IgnoreValues
+      secret: true
+      name: password
     condition: SUCCESSFUL
     optional: false
   triggers:
-  - !TagCreateTrigger {}
+  - type: TagCreateTrigger
   jobDependencies:
   - jobName: CICD
     requireSuccessful: true
@@ -89,7 +140,23 @@ jobs:
   maxRetries: 3
   retryDelay: 30
   timeout: 14400
-imports:
-- projectPath: buildspec_shared
-  revision: main
-  accessTokenSecret: buildspec-access-token
+- name: GitHub Sync
+  steps:
+  - type: PullRepository
+    name: Sync from GitHub
+    remoteUrl: https://github.com/seaglade/mdbf.git
+    userName: seaglade
+    refs: refs/heads/* refs/tags/*
+    withLfs: true
+    force: false
+    condition: SUCCESSFUL
+    optional: false
+  triggers:
+  - type: ScheduleTrigger
+    cronExpression: 0 0 0/3 * * ?
+    branches: '**'
+    projects: mdbf
+  retryCondition: never
+  maxRetries: 3
+  retryDelay: 30
+  timeout: 14400
