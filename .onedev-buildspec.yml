@@ -19,6 +19,19 @@ jobs:
     templateName: Python Detect Version
     condition: SUCCESSFUL
     optional: false
+  - type: CommandStep
+    name: UV Sync
+    runInContainer: true
+    image: ghcr.io/astral-sh/uv:debian-slim
+    interpreter:
+      type: PosixInterpreter
+      shell: sh
+      commands: |
+        uv sync --python-preference=only-managed --locked
+    runAs: 0:0
+    useTTY: true
+    condition: SUCCESSFUL
+    optional: false
   - type: UseTemplateStep
     name: Linter
     templateName: Python Lint
@@ -32,7 +45,7 @@ jobs:
       type: PosixInterpreter
       shell: sh
       commands: |
-        uv build --python-preference=only-managed --cache-dir .uvcache
+        uv build --python-preference=only-managed
     runAs: 0:0
     useTTY: true
     condition: SUCCESSFUL
@@ -63,6 +76,19 @@ jobs:
   - type: UseTemplateStep
     name: Detect Version
     templateName: Python Detect Version
+    condition: SUCCESSFUL
+    optional: false
+  - type: CommandStep
+    name: UV Sync and Build
+    runInContainer: true
+    image: ghcr.io/astral-sh/uv:debian-slim
+    interpreter:
+      type: PosixInterpreter
+      shell: sh
+      commands: |
+        uv sync --python-preference=only-managed --locked && uv build --python-preference=only-managed
+    runAs: 0:0
+    useTTY: true
     condition: SUCCESSFUL
     optional: false
   - type: UseTemplateStep
