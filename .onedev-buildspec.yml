@@ -39,9 +39,6 @@ jobs:
       commands: |
         uv build --python-preference=only-managed --cache-dir .uvcache
     runAs: 0:0
-    envVars:
-    - name: UV_PYTHON_INSTALL_DIR
-      value: /onedev-build/workspace/.uvpython
     useTTY: true
     condition: SUCCESSFUL
     optional: false
