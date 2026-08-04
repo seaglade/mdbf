@@ -1,6 +1,6 @@
 [project]
 authors = [ { name = "KiARC", email = "kiarc@kiarc.win" } ]
-dependencies = [ "py-cord>=2.6.0,<3", "PyYAML>=6.0.1,<7", "toml>=0.10.2,<0.11" ]
+dependencies = [ "PyYAML>=6.0.1,<7", "py-cord>=2.6.0,<3", "toml>=0.10.2,<0.11" ]
 description = "A Modular Discord Bot Framework based on pycord"
 license = "GPL-3.0"
 license-files = [ "LICENSE" ]
@@ -11,12 +11,18 @@ version = "0.4.1"
 
 [dependency-groups]
 dev = [
- "mypy>=1.17.0",
- "ruff>=0.12.7",
- "types-pyyaml>=6.0.12.20250516",
- "types-toml>=0.10.8.20240310",
+    "mypy>=1.17.0",
+    "ruff>=0.12.7",
+    "types-pyyaml>=6.0.12.20250516",
+    "types-toml>=0.10.8.20240310",
 ]
 
 [build-system]
 build-backend = "uv_build"
 requires = [ "uv_build~=0.8.3" ]
+
+[[tool.uv.index]]
+explicit = true
+name = "onedev"
+publish-url = "https://one.seaglade.dev/mdbf/~pypi"
+url = "https://one.seaglade.dev/mdbf/~pypi/simple/"
