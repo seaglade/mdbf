@@ -1,20 +1,24 @@
 [project]
 authors = [ { name = "KiARC", email = "kiarc@kiarc.win" } ]
-dependencies = [ "PyYAML>=6.0.1,<7", "py-cord>=2.6.0,<3", "toml>=0.10.2,<0.11" ]
+dependencies = [
+    "PyYAML>=6.0.3,<7",
+    "py-cord>=2.8.0,<3",
+    "toml>=0.10.2,<0.11",
+]
 description = "A Modular Discord Bot Framework based on pycord"
 license = "GPL-3.0"
 license-files = [ "LICENSE" ]
 name = "mdbf"
 readme = "README.md"
-requires-python = "~=3.12.0"
-version = "0.4.1"
+requires-python = ">=3.10,<3.15"
+version = "1.0.0"
 
 [dependency-groups]
 dev = [
-    "mypy>=1.17.0",
-    "ruff>=0.12.7",
-    "types-pyyaml>=6.0.12.20250516",
-    "types-toml>=0.10.8.20240310",
+    "mypy>=2.2.0",
+    "ruff>=0.15.21",
+    "types-pyyaml>=6.0.12.20260518",
+    "types-toml>=0.10.8.20260518",
 ]
 
 [build-system]

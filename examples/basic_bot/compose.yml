@@ -1,0 +1,12 @@
+services:
+  bot:
+    build: .
+    restart: unless-stopped
+    environment:
+      # Set your token here!
+      BOT_TOKEN: <token>
+    volumes:
+      # Mounting a directory rather than a single file
+      # allows the content of the file to be updated in
+      # the container when it is updated on the host.
+      - ./config/:/app/config/

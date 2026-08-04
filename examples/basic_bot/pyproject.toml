@@ -1,0 +1,10 @@
+[project]
+dependencies = [
+ "mdbf>=0.4.1",
+ "py-cord>=2.8.0",
+]
+description = "A basic MDBF bot."
+name = "basic-bot"
+readme = "README.md"
+requires-python = ">=3.12, <3.15"
+version = "0.1.0"

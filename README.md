@@ -57,13 +57,14 @@ from mdbf.cogs import BaseCog
 
 
 class SimpleCog(BaseCog):
-    def update(self, config: dict) -> None:
+    # This method handles updating Cog state based on config data
+    def __update(self, config: dict) -> None:
         self.emoji = config["emoji"]
 
     @BaseCog.listener()
     async def on_message(self, message: discord.Message) -> None:
         if message.author.bot:
-            return # Ignore messages from bots!
+            return # Ignore messages from other bots!
 
         content = message.content.lower() # We don't care about case
         if (
@@ -75,10 +76,29 @@ class SimpleCog(BaseCog):
 
 The SimpleCog's config section, if named "simple", would look like this:
 
-```yaml
-simple:
-  emoji: ✨
-```
+- In YAML:
+
+  ```yaml
+  simple:
+    emoji: ✨
+  ```
+
+- In TOML:
+
+  ```toml
+  [simple]
+  emoji = "✨"
+  ```
+
+- Or in JSON:
+
+  ```json
+  {
+    "simple": {
+      "emoji": "✨"
+    }
+  }
+  ```
 
 Which would configure it to react with sparkles to its name being mentioned. More complex behavior can be modelled using all of the tools available to normal `pycord` Cogs.
 
@@ -88,43 +108,7 @@ MDBF Handles config reloads via an application command: `/reload`. It can only b
 
 Each Cog needs to implement its own `update` function, which should re-assign any values read from config, and perform any other config dependent initialization logic, such as compiling regexes, caching images from URLs, connecting to databases, etc. This method is automatically called by MDBF when a config change is detected during a `reload`, and at Cog initialization.
 
-Configs can be provided at the following paths: `config.yaml` or `config.yml` (YAML format) or `config.toml` (TOML format). Only one config file should be provided! There are also two "config" values that must be passed as environment variables: `BOT_TOKEN` and `BOT_GUILD_ID`. The only config option present in MDBF itself is `admins`, which is a list of user IDs for users who should be considered "admins" of the bot. They will be able to reload the config, and you can use the `check_admin` function provided by your MDBFBot instance in your Cogs to alter behavior (for example, an `if` statement in an application command to send an error instead of executing a command when run by a non-admin). Any other configuration is determined by your implementation.
-
-## Packaging your bot with Docker
-
-This repo includes a `Dockerfile.example` file that can be used to build your bot, assuming you use UV for project management (which you should, because it's great!) and put your Cogs in the `./cogs/` directory and your bot initialization in `./main.py`, both relative to your project root. If that's the case, you can just build the image with your favorite CICD tool and run the image wherever you want to host your bot.
-
-## Hosting your bot with Docker Compose
-
-An instance of a bot built on MDBF **can only exist in a single guild!**. This is intentional, to avoid the need to manage state across multiple servers. I'm open to advice on how to implement multi-guild functionality, but it isn't planned since all of my own bots are specific to certain servers. You can also just host multiple instances of the same bot in different guilds, if you want. The following mini-guide explains how to set up an individual instance using Docker Compose.
-
-1. Build the docker image. I currently use OneDev for CICD, but you can do it manually, with GitHub Actions, with Drone... In the next steps I'll use `bot:latest` to refer to the image, but you should replace that with wherever your image is located.
-
-2. Make a bot in the Discord Developer Console. Copy its token. I'll use `<token>` where you should paste it.
-
-3. Copy the guild ID of the server your bot will run in. Again, a single instance currently **cannot function in multiple servers!** Paste it where you see `<guild_id>`.
-
-4. Make a `docker-compose.yml` like this:
-
-```yaml
-services:
-  bot:
-    image: bot:latest
-    restart: unless-stopped
-    environment:
-      BOT_TOKEN: <token>
-      BOT_GUILD_ID: <guild_id>
-    volumes:
-      - ./config/:/app/config/
-```
-
-5. Make a folder named `config` and put a new file in it called `config.yml`, `config.yaml` or `config.toml`. If you bind the file directly, hot reloads (via `/reload`) will not work, since docker will not update the contents of the file when they change on the host. Add any config needed for your bot's Cogs.
-
-6. Add the bot to your server via the Discord Developer Console.
-
-7. Launch the stack with `docker compose up -d`. If you want to tail the logs, use `docker compose logs -f`. Don't launch the bot in production without `-d`! If you do, it will go down if you close your terminal, control-c the process, etc!
-
-8. Assuming you've done everything right up to this point, your bot is now ready to use! The sky is the limit.
+Configs can be provided at the following paths: `config.yaml` or `config.yml` (YAML format), `config.toml` (TOML format), or `config.json` (JSON format). Only one config file should be provided! There is also one "config" value that must be passed as an environment variable: `BOT_TOKEN`. The only config option present in MDBF itself is `admins`, which is a list of user IDs for users who should be considered "admins" of the bot. They will be able to reload the config, and you can use the `check_admin` function provided by your MDBFBot instance in your Cogs to alter behavior (for example, an `if` statement in an application command to send an error instead of executing a command when run by a non-admin). Any other configuration is determined by your implementation.
 
 ## Resources
 

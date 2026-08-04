@@ -9,14 +9,15 @@ import yaml
 
 
 def locate_config() -> str:
-    """Find config file (.yml, .yaml, or .toml) in the ./config directory."""
-    config_files = {
-        "./config/config.yml": path.isfile("./config/config.yml"),
-        "./config/config.yaml": path.isfile("./config/config.yaml"),
-        "./config/config.toml": path.isfile("./config/config.toml"),
-    }
+    """Find config file (.yml, .yaml, .toml, or .json) in the ./config directory."""
+    config_file_paths = [
+        "./config/config.yml",
+        "./config/config.yaml",
+        "./config/config.toml",
+        "./config/config.json",
+    ]
 
-    found_files = [file for file, exists in config_files.items() if exists]
+    found_files = [file for file in config_file_paths if path.isfile(file)]
 
     if len(found_files) == 0:
         raise FileNotFoundError(
@@ -43,6 +44,8 @@ def read_config(config_path: str) -> dict[str, typing.Any]:
                     return yaml.safe_load(file)
                 case "toml":
                     return toml.load(file)
+                case "json":
+                    return json.load(file)
                 case _:
                     raise ValueError(f"Unsupported file extension: {ext}")
     except Exception as e:

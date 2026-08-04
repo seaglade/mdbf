@@ -1,5 +1,5 @@
-from asyncio import ensure_future
 from os import environ
+from typing import ValuesView, cast
 
 import discord
 from discord.ext.commands import Bot
@@ -12,113 +12,99 @@ from .utils import gen_config_hash, locate_config, read_config
 class MDBFBot(Bot):
     """An instance of a custom pycord bot that can be used with MDBF cogs and configs"""
 
-    cog_configs: dict[str, str]
-    config_hash: bytes | None = None
-    name: str
-    admins: list[int] | None = None
-    logger: logging.Logger
-    config_path: str
-    cogs: dict[str, BaseCog] = {}
-
-    async def load_config(self, path: str) -> list[str]:
-        """Load and validate the bot configuration."""
-        try:
-            config = read_config(path)
-        except Exception as e:
-            self.logger.error(f"Failed to load config: {e}")
-            return []
-
-        if path != self.config_path:
-            self.config_path = path
-
-        config_hash = gen_config_hash(config)
-        if config_hash != self.config_hash:
-            self.admins = config.get("admins")
-            if not self.admins:
-                raise ValueError("The 'admins' list is required in the configuration.")
-
-            updated = []
-            for cog_name, cog_instance in self.cogs.items():
-                if cog_name in self.cog_configs:
-                    cog_config_section = self.cog_configs[cog_name]
-                    try:
-                        if cog_instance.load_config(config.get(cog_config_section, {})):
-                            updated.append(cog_name)
-                    except Exception as e:
-                        self.logger.error(
-                            f"Failed to load config for cog {cog_name}: {e}"
-                        )
-            self.config_hash = config_hash
-            return updated
-        return []
-
-    async def init_cogs(self, cogs: list[type[BaseCog]]) -> None:
-        """Initialize cogs with their respective configurations."""
-        try:
-            config = read_config(self.config_path)
-            for cog in cogs:
-                cog_name = cog.__name__
-                cog_config = config.get(self.cog_configs.get(cog_name, ""), {})
-                self.add_cog(cog(self, cog_config, self.logger))
-        except Exception as e:
-            self.logger.error(f"Failed to initialize cogs: {e}")
-
     def __init__(
         self,
-        name: str,
-        config_path: str,
         cogs: list[type[BaseCog]],
-        cog_configs: dict[str, str],
+        config_path: str = locate_config(),
         *args,
         **kwargs,
     ) -> None:
         super().__init__(*args, **kwargs)
 
+        self._config_path = config_path
+
         # Validate required environment variables
         bot_token = environ.get("BOT_TOKEN")
-        bot_guild_id = environ.get("BOT_GUILD_ID")
-        if not bot_token or not bot_guild_id:
-            raise ValueError(
-                "Environment variables BOT_TOKEN and BOT_GUILD_ID are required."
+        if not bot_token:
+            raise ValueError("Environment variable BOT_TOKEN is required.")
+
+        # Initialize logger
+        self.__logger = logging.getLogger(__name__)
+        self.__logger.setLevel(logging.INFO)
+
+        # Load the initial config and set up cogs
+        # Unlike in _reload, an exception here should be fatal, so there is no try/catch being used
+        config = read_config(self._config_path)
+        self._config_hash = gen_config_hash(config)
+        admins = config.get("admins")
+        if not admins:
+            raise ValueError("The 'admins' list is required in the configuration.")
+        else:
+            self._admins = admins
+        for cog in cogs:
+            cog_config = (
+                # Cogs with no config key or whose key is not in
+                # the config data get an empty dict as "config"
+                config.get(cog.config_key, {}) if cog.config_key is not None else {}
             )
+            self.add_cog(cog(self, cog_config, self.__logger))
 
-        self.name = name
-        self.config_path = config_path
-        self.cog_configs = cog_configs
+    def log(
+        self,
+        message: str,
+        level: int = logging.INFO,
+    ) -> None:
+        """Log a message using the logger instance with a specified level."""
+        self.__logger.log(level, f"{type(self).__name__}:{message}")
 
-        # Initialize logger with bot's name
-        self.logger = logging.getLogger(__name__)
-        self.logger.setLevel(logging.INFO)
+    def _reload(self) -> list[str]:
+        """Check for changes to the bot configuration and load new config if there are changes"""
+        config = read_config(self._config_path)
+        config_hash = gen_config_hash(config)
+        if config_hash != self._config_hash:
+            admins = config.get("admins")
+            if not admins:
+                raise ValueError(
+                    "The 'admins' list is required in the configuration.",
+                )
+            else:
+                self._admins = admins
 
-        try:
-            ensure_future(self.init_cogs(cogs))
-            ensure_future(self.load_config(self.config_path))
-        except Exception as e:
-            self.logger.error(f"Failed to initialize bot: {e}")
+            updated = []
+            for cog in cast(ValuesView[BaseCog], self.cogs.values()):
+                # Cogs without config keys do not have config to reload
+                # and as such can be skipped.
+                if cog.config_key is not None:
+                    did_update = cog.load_config(config.get(cog.config_key, {}))
+                    if did_update:
+                        updated.append(type(cog).__name__)
+            self._config_hash = config_hash
+            return updated
+        else:
+            return []
 
-    async def check_admin(self, user: discord.User | discord.Member) -> bool:
-        """Check if a user is an admin."""
-        return user.id in self.admins if self.admins else False
+    def check_admin(self, user: discord.User | discord.Member) -> bool:
+        """Check whether a user is an admin."""
+        return user.id in self._admins
 
     def serve(self) -> None:
         """Start serving the bot instance."""
 
         @self.listen(once=True)
         async def on_ready() -> None:
-            self.logger.info(f"{self.name} is ready (logged in as {self.user})")
+            self.log(f"Bot is ready (logged in as {self.user})")
 
         @self.slash_command(
             name="reload",
-            description="Reloads the bot's configuration without restarting the bot",
+            description="Reloads the bot's configuration",
         )
         async def reload_command(ctx: discord.ApplicationContext) -> None:
-            if await self.check_admin(ctx.author):
+            if self.check_admin(ctx.author):
                 try:
-                    config_path = locate_config()
-                    self.logger.info(
-                        f"{ctx.author.name} requested a config reload, using file {config_path}..."
+                    self.log(
+                        f"{ctx.author.name} requested a config reload, using file {self._config_path}..."
                     )
-                    updated = await self.load_config(config_path)
+                    updated = self._reload()
                     if updated:
                         await ctx.interaction.response.send_message(
                             f"Configuration reloaded for cogs: {', '.join(updated)}",
@@ -129,14 +115,15 @@ class MDBFBot(Bot):
                             "No configuration changes detected", ephemeral=True
                         )
                 except Exception as e:
-                    self.logger.error(f"Failed to reload configuration: {e}")
+                    self.log(f"Failed to reload configuration: {e}", logging.ERROR)
                     await ctx.interaction.response.send_message(
                         "An error occurred while reloading the configuration.",
                         ephemeral=True,
                     )
             else:
-                self.logger.warning(
-                    f"{ctx.author.name} requested a config reload, but they are not an admin"
+                self.log(
+                    f"{ctx.author.name} requested a config reload, but they are not an admin",
+                    logging.WARNING,
                 )
                 await ctx.interaction.response.send_message(
                     "You do not have permission to use this command", ephemeral=True
