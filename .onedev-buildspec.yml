@@ -19,9 +19,17 @@ jobs:
     templateName: Python Detect Version
     condition: SUCCESSFUL
     optional: false
-  - type: UseTemplateStep
-    name: UV Cache and Sync
-    templateName: UV Cache and Sync
+  - type: CommandStep
+    name: UV Sync
+    runInContainer: true
+    image: ghcr.io/astral-sh/uv:debian-slim
+    interpreter:
+      type: PosixInterpreter
+      shell: sh
+      commands: |
+        uv sync --python-preference=only-managed --locked
+    runAs: 0:0
+    useTTY: true
     condition: SUCCESSFUL
     optional: false
   - type: UseTemplateStep
