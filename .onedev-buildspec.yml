@@ -190,6 +190,9 @@ jobs:
     force: false
     condition: SUCCESSFUL
     optional: false
+  triggers:
+  - type: BranchUpdateTrigger
+    userMatch: anyone
   retryCondition: never
   maxRetries: 3
   retryDelay: 30
