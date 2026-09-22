@@ -2,6 +2,9 @@
 
 A template for Discord bots based on `pycord` with built-in handling of config files (YAML or TOML), easy Docker packaging, and modular components powered by Cogs.
 
+> [!NOTE]
+> This repository exists both [on my GitHub](https://github.com/seaglade/mdbf) and [on my OneDev server](https://one.seaglade.dev), which automatically sync with each other. Issues can be reported to either platform, but the latter is preferred. The CICD jobs run on OneDev, so that should be considered the "canonical" source.
+
 ## Table of Contents
 
 - [Building a bot with MDBF](#building-a-bot-with-mdbf)
