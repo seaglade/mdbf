@@ -1,4 +1,4 @@
-version: 52
+version: 53
 imports:
 - projectPath: buildspec_shared
   revision: main
@@ -62,6 +62,8 @@ jobs:
   retryCondition: never
   maxRetries: 3
   retryDelay: 30
+  includeUpstreamWhenRebuild: false
+  includeDownstreamWhenRebuild: false
   timeout: 14400
 - name: Publish
   steps:
@@ -152,13 +154,16 @@ jobs:
   retryCondition: never
   maxRetries: 3
   retryDelay: 30
+  includeUpstreamWhenRebuild: false
+  includeDownstreamWhenRebuild: false
   timeout: 14400
-- name: GitHub Sync
+- name: 'GitHub Sync: Inbound'
   steps:
   - type: PullRepository
-    name: Sync from GitHub
+    name: Pull from GitHub
     remoteUrl: https://github.com/seaglade/mdbf.git
     userName: seaglade
+    passwordSecret: github-token
     refs: refs/heads/* refs/tags/*
     withLfs: true
     force: false
@@ -172,4 +177,22 @@ jobs:
   retryCondition: never
   maxRetries: 3
   retryDelay: 30
+  includeUpstreamWhenRebuild: false
+  includeDownstreamWhenRebuild: false
+  timeout: 14400
+- name: 'GitHub Sync: Outbound'
+  steps:
+  - type: PushRepository
+    name: Push to GitHub
+    remoteUrl: https://github.com/seaglade/mdbf.git
+    userName: seaglade
+    passwordSecret: github-token
+    force: false
+    condition: SUCCESSFUL
+    optional: false
+  retryCondition: never
+  maxRetries: 3
+  retryDelay: 30
+  includeUpstreamWhenRebuild: false
+  includeDownstreamWhenRebuild: false
   timeout: 14400
